@@ -1,10 +1,10 @@
 /*
 nRF Serial Chat
 
-Date : 22 Aug 2013
+Date : 29 Sep 2015
 Author : Stanley Seow
 e-mail : stanleyseow@gmail.com
-Version : 0.90
+Version : 1.00
 Desc : 
 I worte this simple interactive serial chat over nRF that can be used for both sender 
 and receiver as I swapped the TX & RX addr during read/write operation.
@@ -17,13 +17,20 @@ for next payload to be sent out sequentially.
 
 */
 
-#include <LiquidCrystal.h>
+#define I2C_LCD
+
+#ifdef I2C_LCD
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
+//LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
+#endif
+
 #include <SPI.h>
 #include "nRF24L01.h"
 #include "RF24.h"
 #include "printf.h"
 
-LiquidCrystal lcd(10, 7, 3, 4, 5, 6);
 
 RF24 radio(8,9);
 
@@ -40,11 +47,16 @@ char serialBuffer[31] = "";
 
 void setup(void) {
  
-  Serial.begin(57600);
+  Serial.begin(9600);
+  
+#ifdef I2C_LCD
+  lcd.init(); 
+  lcd.backlight();
   lcd.begin(16,2);
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("RF Chat V0.90");
+  lcd.print("RF Chat V1.0");
+  delay(500);
+  //lcd.clear();
+#endif
 
   printf_begin();
   radio.begin();
@@ -64,7 +76,7 @@ void setup(void) {
   radio.printDetails();
 
   Serial.println();
-  Serial.println("RF Chat V0.90");    
+  Serial.println("RF Chat V01.0");    
   delay(500);
   lcd.clear();
 }
@@ -104,20 +116,19 @@ void serialEvent() {
 void nRF_receive(void) {
   int len = 0;
   if ( radio.available() ) {
-      bool done = false;
-      while ( !done ) {
         len = radio.getDynamicPayloadSize();
-        done = radio.read(&RecvPayload,len);
+        radio.read(&RecvPayload,len);
         delay(5);
-      }
   
     RecvPayload[len] = 0; // null terminate string
     
+#ifdef I2C_LCD    
     lcd.setCursor(0,0);
-    lcd.print("R:");
-    Serial.print("R:");
+    lcd.print("R:              ");
     lcd.setCursor(2,0);
     lcd.print(RecvPayload);
+#endif    
+    Serial.print("R:");
     Serial.print(RecvPayload);
     Serial.println();
     RecvPayload[0] = 0;  // Clear the buffers
@@ -133,13 +144,16 @@ void serial_receive(void){
         radio.openWritingPipe(pipes[1]);
         radio.openReadingPipe(0,pipes[0]);  
         radio.stopListening();
-        bool ok = radio.write(&SendPayload,strlen(SendPayload));
+        radio.write(&SendPayload,strlen(SendPayload));
         
+#ifdef I2C_LCD            
         lcd.setCursor(0,1);
-        lcd.print("S:");
-        Serial.print("S:");
+        lcd.print("S:              ");
         lcd.setCursor(2,1);
         lcd.print(SendPayload);
+#endif        
+
+        Serial.print("S:");  
         Serial.print(SendPayload);          
         Serial.println();
         stringComplete = false;
@@ -152,5 +166,6 @@ void serial_receive(void){
         dataBufferIndex = 0;
   } // endif
 } // end serial_receive()    
+
 
 
